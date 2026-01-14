@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive # S'assure de récupérer les sous-modules si PJSIP en est un
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -20,35 +22,40 @@ jobs:
       - name: Setup Android NDK
         id: setup-ndk
         run: |
-          # Détecte automatiquement la version la plus récente de l'NDK installée sur le serveur
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
-          echo "NDK trouvé ici : $NDK_PATH"
 
       - name: Configure PJSIP
         run: |
           cd app/src/main/cpp/pjproject
           
-          # 1. Donner les droits d'exécution aux scripts (Principal et internes)
+          # 1. Donner les droits d'exécution
           chmod +x configure-android configure aconfigure
           
-          # 2. Création du fichier de config requis par PJSIP
+          # 2. Vérification de l'existence du fichier manquant (Debug)
+          if [ ! -f "build/os-auto.mak.in" ]; then
+            echo "ERREUR : build/os-auto.mak.in est absent !"
+            echo "Contenu du dossier build :"
+            ls -R build
+          fi
+
+          # 3. Création du fichier de config requis
           mkdir -p pjlib/include/pj
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
           
-          # 3. Lancement de la configuration avec l'NDK détecté
-          ./configure-android --with-ndk=$ANDROID_NDK_ROOT
+          # 4. Lancement de la configuration
+          # Note: j'enlève --with-ndk car le log dit qu'il n'est pas reconnu, 
+          # les variables d'environnement CC/AR sont déjà bien réglées par configure-android
+          ./configure-android
 
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # Compilation des dépendances et des bibliothèques
           make dep && make clean && make -j$(nproc)
 
       - name: Upload Static Libs as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # On récupère tous les fichiers .a générés
           path: app/src/main/cpp/pjproject/lib/*.a
