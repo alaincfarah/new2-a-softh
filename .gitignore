@@ -7,3 +7,4 @@ captures/
 .externalNativeBuild/
 .cxx/
 !app/src/main/cpp/pjproject/build/
+!app/src/main/cpp/pjproject/**/build/
