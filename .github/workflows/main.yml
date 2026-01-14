@@ -17,25 +17,31 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Android NDK
-        run: echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk-bundle" >> $GITHUB_ENV
+      - name: Setup Android NDK
+        id: setup-ndk
+        run: |
+          # On cherche le dossier NDK installé (souvent dans /usr/local/lib/android/sdk/ndk/...)
+          # Cette commande prend la version la plus récente présente sur le runner
+          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
+          echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
+          echo "NDK trouvé ici : $NDK_PATH"
 
       - name: Configure PJSIP
         run: |
           cd app/src/main/cpp/pjproject
-          # Donner les droits d'exécution
           chmod +x configure-android
           
-          # Create a basic config_site.h required by PJSIP
+          # Création du fichier de config requis
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
           
-          # Run the Android configuration script
-          ./configure-android --with-ndk=$ANDROID_SDK_ROOT/ndk-bundle
+          # On utilise la variable $ANDROID_NDK_ROOT détectée juste au-dessus
+          ./configure-android --with-ndk=$ANDROID_NDK_ROOT
 
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
+          # On s'assure que les dépendances sont propres
           make dep && make clean && make -j$(nproc)
 
       - name: Upload Static Libs as Artifact
