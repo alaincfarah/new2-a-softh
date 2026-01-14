@@ -21,7 +21,7 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          # Détection de l'NDK installé sur le serveur
+          # Utilise l'NDK par défaut du serveur GitHub
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
 
@@ -29,27 +29,29 @@ jobs:
         run: |
           cd app/src/main/cpp/pjproject
           chmod +x configure-android configure aconfigure
+          
+          # Création du fichier de config obligatoire
           mkdir -p pjlib/include/pj
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
+          
           ./configure-android
 
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # ORDRE CORRECT : clean d'abord, puis dep, puis build
+          # ORDRE CORRIGÉ : On nettoie d'abord, puis on prépare, puis on compile
           make clean
           make dep
           make -j$(nproc)
 
-      - name: Debug - List Generated Files
-        # Cette étape vous montrera dans les logs où sont les fichiers .a
-        run: |
-          find app/src/main/cpp/pjproject -name "*.a"
+      - name: Check compiled files (Debug)
+        # Liste les fichiers .a pour confirmer la réussite dans les logs
+        run: find app/src/main/cpp/pjproject -name "*.a"
 
       - name: Upload Static Libs as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # Le symbole ** permet de chercher dans tous les sous-dossiers
+          # Recherche récursive de tous les fichiers .a dans tous les modules
           path: app/src/main/cpp/pjproject/**/*.a
