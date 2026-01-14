@@ -2,7 +2,7 @@ name: Build PJSIP for Android
 on: 
   push:
     branches: [ "newsofta" ]
-  workflow_dispatch: # Allows you to run it manually from the Actions tab
+  workflow_dispatch: 
 
 jobs:
   build-pjsip:
@@ -21,10 +21,17 @@ jobs:
         run: echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk-bundle" >> $GITHUB_ENV
 
       - name: Configure PJSIP
-  run: |
-    cd app/src/main/cpp/pjproject
-    chmod +x configure-android  # <--- Ajoutez cette ligne
-    ./configure-android
+        run: |
+          cd app/src/main/cpp/pjproject
+          # Donner les droits d'exécution
+          chmod +x configure-android
+          
+          # Create a basic config_site.h required by PJSIP
+          echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
+          echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
+          
+          # Run the Android configuration script
+          ./configure-android --with-ndk=$ANDROID_SDK_ROOT/ndk-bundle
 
       - name: Compile Libraries
         run: |
