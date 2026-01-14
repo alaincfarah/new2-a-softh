@@ -1,0 +1,61 @@
+name: Build PJSIP for Android
+on: 
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: 
+
+jobs:
+  build-pjsip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # S'assure de récupérer les sous-modules si PJSIP en est un
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android NDK
+        id: setup-ndk
+        run: |
+          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
+          echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
+
+      - name: Configure PJSIP
+        run: |
+          cd app/src/main/cpp/pjproject
+          
+          # 1. Donner les droits d'exécution
+          chmod +x configure-android configure aconfigure
+          
+          # 2. Vérification de l'existence du fichier manquant (Debug)
+          if [ ! -f "build/os-auto.mak.in" ]; then
+            echo "ERREUR : build/os-auto.mak.in est absent !"
+            echo "Contenu du dossier build :"
+            ls -R build
+          fi
+
+          # 3. Création du fichier de config requis
+          mkdir -p pjlib/include/pj
+          echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
+          echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
+          
+          # 4. Lancement de la configuration
+          # Note: j'enlève --with-ndk car le log dit qu'il n'est pas reconnu, 
+          # les variables d'environnement CC/AR sont déjà bien réglées par configure-android
+          ./configure-android
+
+      - name: Compile Libraries
+        run: |
+          cd app/src/main/cpp/pjproject
+          make dep && make clean && make -j$(nproc)
+
+      - name: Upload Static Libs as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pjsip-static-libs
+          path: app/src/main/cpp/pjproject/lib/*.a
