@@ -21,37 +21,37 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          # Utilise l'NDK par défaut du serveur GitHub
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
 
       - name: Configure PJSIP
         run: |
           cd app/src/main/cpp/pjproject
+          # Donne les droits aux scripts de configuration
           chmod +x configure-android configure aconfigure
-          
-          # Création du fichier de config obligatoire
+          # Crée le fichier de config obligatoire
           mkdir -p pjlib/include/pj
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
-          
           ./configure-android
 
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # ORDRE CORRIGÉ : On nettoie d'abord, puis on prépare, puis on compile
+          # ORDRE CRUCIAL : Clean d'abord, puis dépendances, puis compilation
           make clean
           make dep
           make -j$(nproc)
 
-      - name: Check compiled files (Debug)
-        # Liste les fichiers .a pour confirmer la réussite dans les logs
-        run: find app/src/main/cpp/pjproject -name "*.a"
+      - name: Debug - Find compiled libs
+        # Cette étape permet de confirmer visuellement la création des fichiers dans les logs
+        run: |
+          echo "Recherche des fichiers .a générés :"
+          find app/src/main/cpp/pjproject -name "*.a"
 
       - name: Upload Static Libs as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # Recherche récursive de tous les fichiers .a dans tous les modules
+          # Le symbole ** permet de chercher récursivement dans TOUS les sous-dossiers
           path: app/src/main/cpp/pjproject/**/*.a
