@@ -21,6 +21,7 @@ jobs:
 
       - name: Setup Android NDK
         run: |
+          # Détection de l'NDK installé sur le serveur
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
 
@@ -36,13 +37,13 @@ jobs:
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # ORDRE CRUCIAL : clean en premier, puis dep, puis make
+          # ORDRE CORRECT : clean d'abord, puis dep, puis build
           make clean
           make dep
           make -j$(nproc)
 
-      - name: Debug - List Generated Libs
-        # Cette étape permet de voir exactement où sont les fichiers dans les logs
+      - name: Debug - List Generated Files
+        # Cette étape vous montrera dans les logs où sont les fichiers .a
         run: |
           find app/src/main/cpp/pjproject -name "*.a"
 
@@ -50,5 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # On cherche tous les .a récursivement dans tous les sous-dossiers
+          # Le symbole ** permet de chercher dans tous les sous-dossiers
           path: app/src/main/cpp/pjproject/**/*.a
