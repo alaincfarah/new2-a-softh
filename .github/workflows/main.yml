@@ -1,7 +1,7 @@
 name: Build PJSIP for Android
 on: 
   push:
-    branches: [ "newsofta" ]
+    branches: [ "main" ]
   workflow_dispatch: 
 
 jobs:
