@@ -1,0 +1,42 @@
+name: Build PJSIP for Android
+on: 
+  push:
+    branches: [ "newsofta" ]
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+
+jobs:
+  build-pjsip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Android NDK
+        run: echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk-bundle" >> $GITHUB_ENV
+
+      - name: Configure PJSIP
+        run: |
+          cd app/src/main/cpp/pjproject
+          # Create a basic config_site.h required by PJSIP
+          echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
+          echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
+          
+          # Run the Android configuration script
+          ./configure-android --with-ndk=$ANDROID_SDK_ROOT/ndk-bundle
+
+      - name: Compile Libraries
+        run: |
+          cd app/src/main/cpp/pjproject
+          make dep && make clean && make -j$(nproc)
+
+      - name: Upload Static Libs as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pjsip-static-libs
+          path: app/src/main/cpp/pjproject/lib/*.a
