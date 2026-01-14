@@ -6,4 +6,4 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
-
+!app/src/main/cpp/pjproject/build/
