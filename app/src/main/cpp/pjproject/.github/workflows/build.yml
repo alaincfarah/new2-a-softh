@@ -36,13 +36,13 @@ jobs:
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # On nettoie d'abord, puis on prépare les dépendances, puis on compile
+          # ORDRE CRUCIAL : clean en premier, puis dep, puis make
           make clean
           make dep
           make -j$(nproc)
 
-      - name: Check generated files (Debug)
-        # Cette étape listera tous les fichiers .a pour voir s'ils existent
+      - name: Debug - List Generated Libs
+        # Cette étape permet de voir exactement où sont les fichiers dans les logs
         run: |
           find app/src/main/cpp/pjproject -name "*.a"
 
@@ -50,5 +50,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # On utilise '**/*.a' pour chercher dans TOUS les sous-dossiers
+          # On cherche tous les .a récursivement dans tous les sous-dossiers
           path: app/src/main/cpp/pjproject/**/*.a
