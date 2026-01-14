@@ -21,14 +21,14 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          # Détection automatique de l'NDK présent sur l'image Ubuntu de GitHub
+          # Détection automatique de l'NDK installé sur l'image Ubuntu de GitHub
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
 
       - name: Configure PJSIP
         run: |
           cd app/src/main/cpp/pjproject
-          # Donner les droits d'exécution aux scripts de config
+          # Donner les droits d'exécution aux scripts de configuration
           chmod +x configure-android configure aconfigure
           
           # Préparation du fichier config_site.h indispensable pour Android
@@ -36,18 +36,21 @@ jobs:
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
           
+          # Lancement de la configuration pour Android
           ./configure-android
 
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # ORDRE TRÈS IMPORTANT : Clean -> Dep -> All
+          # 1. Nettoyer les résidus
           make clean
+          # 2. Générer les dépendances pour tous les modules
           make dep
-          make -j$(nproc)
+          # 3. Compiler TOUT le projet (cible 'all' pour éviter les oublis)
+          make all -j$(nproc)
 
       - name: Debug - List All Compiled Files
-        # Cette étape permet de voir dans les logs où sont exactement les fichiers .a
+        # Cette étape permet de confirmer la présence des fichiers .a dans les logs
         if: always()
         run: |
           echo "Scan de tous les fichiers .a générés dans le projet :"
@@ -57,5 +60,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # On utilise '**/*.a' pour attraper les libs dans tous les sous-dossiers (pjlib/lib, etc.)
+          # On utilise '**/*.a' pour attraper les libs dans TOUS les sous-dossiers
           path: app/src/main/cpp/pjproject/**/*.a
