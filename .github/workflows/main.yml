@@ -21,44 +21,46 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          # Détection automatique de l'NDK installé sur l'image Ubuntu de GitHub
-          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
+          # Utilisation d'une version stable de l'NDK (25.x) pour éviter les bugs de compatibilité
+          NDK_PATH=$ANDROID_SDK_ROOT/ndk/25.2.9519653
+          if [ ! -d "$NDK_PATH" ]; then
+            NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
+          fi
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
 
       - name: Configure PJSIP
         run: |
           cd app/src/main/cpp/pjproject
-          # Donner les droits d'exécution aux scripts de configuration
           chmod +x configure-android configure aconfigure
           
-          # Préparation du fichier config_site.h indispensable pour Android
+          # Création du fichier de config obligatoire pour Android
           mkdir -p pjlib/include/pj
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
           
-          # Lancement de la configuration pour Android
           ./configure-android
 
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # 1. Nettoyer les résidus
+          # On nettoie tout avant de commencer
           make clean
-          # 2. Générer les dépendances pour tous les modules
+          # On génère les dépendances pour TOUT le projet
           make dep
-          # 3. Compiler TOUT le projet (cible 'all' pour éviter les oublis)
-          make all -j$(nproc)
+          # On lance la compilation totale (on retire le -j pour le debug, c'est plus sûr)
+          make
+          # On force la compilation de pjsua2 qui est souvent oubliée
+          make -C pjsip/build pjsua2-lib
 
       - name: Debug - List All Compiled Files
-        # Cette étape permet de confirmer la présence des fichiers .a dans les logs
         if: always()
         run: |
-          echo "Scan de tous les fichiers .a générés dans le projet :"
+          echo "Vérification des fichiers .a générés (Doit en trouver plus de 10) :"
           find app/src/main/cpp/pjproject -name "*.a"
 
       - name: Upload Static Libs as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # On utilise '**/*.a' pour attraper les libs dans TOUS les sous-dossiers
+          # Recherche récursive de toutes les libs .a dans tous les modules
           path: app/src/main/cpp/pjproject/**/*.a
