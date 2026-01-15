@@ -21,9 +21,10 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          # Utilisation d'une version stable de l'NDK (25.x) pour éviter les bugs de compatibilité
+          # On essaie d'abord une version stable connue (25.x)
           NDK_PATH=$ANDROID_SDK_ROOT/ndk/25.2.9519653
           if [ ! -d "$NDK_PATH" ]; then
+            # Si absente, on prend la plus récente disponible
             NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* | tail -1)
           fi
           echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
@@ -33,7 +34,7 @@ jobs:
           cd app/src/main/cpp/pjproject
           chmod +x configure-android configure aconfigure
           
-          # Création du fichier de config obligatoire pour Android
+          # Fichier de config obligatoire
           mkdir -p pjlib/include/pj
           echo "#define PJ_CONFIG_ANDROID 1" > pjlib/include/pj/config_site.h
           echo "#include <pj/config_site_sample.h>" >> pjlib/include/pj/config_site.h
@@ -43,24 +44,24 @@ jobs:
       - name: Compile Libraries
         run: |
           cd app/src/main/cpp/pjproject
-          # On nettoie tout avant de commencer
+          # 1. Nettoyage
           make clean
-          # On génère les dépendances pour TOUT le projet
+          # 2. Génération des dépendances
           make dep
-          # On lance la compilation totale (on retire le -j pour le debug, c'est plus sûr)
+          # 3. Compilation principale
           make
-          # On force la compilation de pjsua2 qui est souvent oubliée
+          # 4. Force la compilation du module pjsua2 (souvent ignoré par le make racine)
           make -C pjsip/build pjsua2-lib
 
       - name: Debug - List All Compiled Files
         if: always()
         run: |
-          echo "Vérification des fichiers .a générés (Doit en trouver plus de 10) :"
+          echo "Liste des bibliothèques générées :"
           find app/src/main/cpp/pjproject -name "*.a"
 
       - name: Upload Static Libs as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pjsip-static-libs
-          # Recherche récursive de toutes les libs .a dans tous les modules
+          # Chemin récursif pour attraper toutes les libs produites
           path: app/src/main/cpp/pjproject/**/*.a
